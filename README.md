@@ -73,6 +73,6 @@ automsi was developed under the umbrella of the the Division of Applied Bioinfor
 The present contribution is supported by the Helmholtz Association under the joint research school "[HIDSS4Health – Helmholtz Information and Data Science School for Health](https://www.hidss4health.de/)".
 
 
-If you use this software, we appreciate if you cite the following paper:
+If you use this software, we appreciate if you cite the following paper (currently available as preprint via Research Square):
 
-- Paper link
+Verena Bitto, Pia Hönscheid, María José Besso et al. Easing accessibility to mass spectrometry imaging using convolutional autoencoders for deriving hypoxia-associated peptide candidates from tumors, 22 January 2024, PREPRINT (Version 1) available at Research Square [https://doi.org/10.21203/rs.3.rs-3755587/v1]
