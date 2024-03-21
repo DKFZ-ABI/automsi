@@ -25,10 +25,14 @@ def main(msi_experiment, msi, args):
     p_flatten = np.concatenate(msi.train.x.patches)
         
     z = msi_experiment.conv_ae._encoder.predict(p_flatten) 
-    z_patches, z_images = msi._patches.get_labeled_images_from_patches(msi.train.x.patches, z)
     path = os.path.join(args.ae_path, args.experiment, "latent")
+    z_patches, z_images = msi._patches.get_labeled_images_from_patches(msi.train.x.patches, z)
     ae_plots.conv_generate_latent_plots_from_patches(z_images, 6, 5,  path + ".pdf")
-                     
+    
+    # vae
+    #ae_utils.plot_latent_plots(z[0],  msi.train.x.images,  msi.train.x.patches, 3, path + "_mean")
+    #ae_utils.plot_latent_plots(z[2],  msi.train.x.images,  msi.train.x.patches, 3, path + "_z")
+                 
       
     
 if __name__ == '__main__':
@@ -46,7 +50,7 @@ if __name__ == '__main__':
     msi_samples, _ = ae_preprocessing.normalize_train_test_using_scaler(msi_samples, None, scaler, pd.DataFrame(), None)
     
     obs_xy = ["xLocation", "yLocation"]
-    msi = ae_images.SpatialDataset(msi_experiment.patch_size, n_features, None, {}, {}, obs_xy).build(msi_samples, None)
+    msi = ae_images.SpatialDataset(msi_experiment.patch_size, n_features, {}, {}, obs_xy).build(msi_samples, None)
     
    
 

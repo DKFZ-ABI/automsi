@@ -41,20 +41,29 @@ class MetricCollector:
 
 class FeatureCollector:
     
-    def __init__(self, cutoff, cross_vals = range(0,9)):
+    def __init__(self, cutoff, cross_vals = range(0,10)):
         self.cutoff = cutoff
         self.cross_vals = cross_vals
         
     def get_by_score(self, path, col_names, score):
-        feature_set = set()
+        # collect only top-ranked features
+        if self.cutoff == 1: 
+            feature_set = []
+        else:
+            feature_set = set()
+            
         for i in self.cross_vals:
             sheet = pd.read_excel(path, str(i), header=0, names=col_names) 
             top = sheet.iloc[0]
-            idx_cut = np.argmin(sheet[score] > top[score] / self.cutoff)
+            idx_cut = np.argmin(sheet[score] >= top[score] / self.cutoff)
             feature_ids = sheet.mz_index.loc[0:idx_cut-1]
-            feature_set.update(feature_ids)   
-    
+            if self.cutoff == 1:
+                feature_set.append(feature_ids[0])   
+            else:
+                feature_set.update(feature_ids)   
+                
         return np.array(list(feature_set))
+        
         
 
 def load_raw_msi_information(peaks_meta_path, samples):

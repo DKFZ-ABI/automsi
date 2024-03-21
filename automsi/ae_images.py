@@ -8,8 +8,6 @@ import tensorflow as tf
 
 import matplotlib.pyplot as plt
 
-
-
 class SpatialImages():
     def __init__(self, n_features: int, padding_base: int, im_label: dict, obs_label: dict, obs_xy: list,
                  background: int):
@@ -75,7 +73,6 @@ class Patches():
         self.patch_size = patch_size
         self.no_patches = {}
         self.n_features = n_features
-        
     
     def create_all(self, images : pd.Series):
         images_patches = []
@@ -159,10 +156,7 @@ class Patches():
     def get_image_from_patch(self, patch : pd.Series, name : str):
         patch, n = self.shape_with_no_patches_and_mz(patch, name, patch.shape[2], patch.shape[3]) 
         
-        rows = np.split(patch, n, axis=0) # n x (n, patch_size, patch_size, n_features)
-        rows = [np.concatenate(np.moveaxis(x, 0, 0), axis = 1) for x in rows] # n x (patch_size, patch_size * n, n_features)
-        image = np.concatenate(rows, axis = 0) # (patch_size * n, patch_size * n, n_features)
-
+        image = Patches.reshape_patch(patch, n)
         return (name, image)
     
         
@@ -179,7 +173,27 @@ class Patches():
         rebuild_images = [self.get_image_from_patch(p, name) for name, p in patches.items()]
         return pd.Series(dict(rebuild_images))
     
+    @staticmethod
+    def reshape_patch(patch, n):
+        rows = np.split(patch, n, axis=0) # n x (n, patch_size, patch_size, n_features)
+        rows = [np.concatenate(np.moveaxis(x, 0, 0), axis = 1) for x in rows] # n x (patch_size, patch_size * n, n_features)
+        image = np.concatenate(rows, axis = 0) # (patch_size * n, patch_size * n, n_features)
+        return image
+        
     
+    @staticmethod
+    def rebuild_image_directly(sample, feature_id):
+        patch = np.reshape(sample[...,feature_id], (sample.shape[0], sample.shape[1], sample.shape[2], 1))
+        n = int(np.sqrt(patch.shape[0]))
+        
+        return Patches.reshape_patch(patch, n)
+    
+    @staticmethod
+    def rebuild_images_from_indices(patches, index_split, feature_id):
+        # last index not needed for split
+        series = np.split(patches, index_split[:-1])
+        images = [Patches.rebuild_image_directly(sample, feature_id) for sample in series]
+        return images
 
     
 class SpatialDataset():
@@ -247,7 +261,7 @@ class SpatialDataRep():
     def identify_non_zero_patches(self):
         patches = self.flatten()
         mean_value = np.mean(patches, axis = (1,2,3))
-        
+        del patches
         return np.where(mean_value != 0.)[0]
     
 
@@ -271,6 +285,20 @@ class SpatialData():
         x, y = self.x.flatten(), self.y.flatten()
         return x[non_zero_p], y[non_zero_p]
 
+    # avoid concatening huge x patch shapes
+    def get_non_empty_idx_patches(self):
+        idx = []
+        x = self.x.patches if self.x._patches_overlap is None else self.x.patches_overlap
+        y = self.y.flatten()
+        i = 0
+        for sample in x.items():
+            for p in sample[1]: # loop through values
+                p_mean = np.mean(p, axis = (0,1,2))
+                if p_mean != 0.: 
+                    idx.append(i)
+                i = i + 1
+        
+        return x, y, idx
 
     def create_overlapping_patches(self, stride:int):
         if stride != 0:  # != patch_size
@@ -289,4 +317,7 @@ class SpatialData():
         self.z = z
         self.dec = SpatialDataRep(dec_images, dec_patches)
         
-        
+    def clear(self):
+        self.x = None
+        self.y = None
+

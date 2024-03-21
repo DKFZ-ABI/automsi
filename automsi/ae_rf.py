@@ -4,31 +4,47 @@ from sklearn.ensemble import RandomForestRegressor
 import numpy as np
 
 class PatchAdapter():
-    
-    def __init__(self, x, y, labels):
+    def __init__(self, x, y, idx, labels):
         self.x = x
         self.y = y
+        self.idx = idx
         self.labels = labels
         self.x_mean = None
         self.y_mean = None
         
-    def reduce_to_mean(self, label):
-        self.x_mean = np.mean(self.x, axis = (1,2))
-        self.y_mean = np.mean(self.y[...,self.labels[label]], axis = (1,2))
+        
+    def reduce_corresponding_x_patches_to_mean(self):
+        i = 0
+        j = 0
+        x_red = np.empty((len(self.poi), self.x[0].shape[1], self.x[0].shape[2], self.x[0].shape[3]))
+        print(x_red.shape)
+        for sample in self.x.items():
+            for x in sample[1]: # loop through values
+                if i in self.poi:
+                    x_red[j] = x
+                    j = j + 1
+                i = i + 1
+        self.x_mean = np.mean(x_red, axis = (1,2))
+        self.x = x_red
         return self
     
-    def undersample_non_label_patches(self, cutoff, other_fraction):
-        patches_of_interest = np.where(self.y_mean >= cutoff)[0]
+    def undersample_non_label_patches(self, label, cutoff, other_fraction):
+        y_mean = np.mean(self.y[...,self.labels[label]], axis = (1,2))
+        
+        patches_of_interest = np.where(y_mean[self.idx] >= cutoff)[0]
         len_poi = len(patches_of_interest)
         if other_fraction > 0.:        
-            other_patches = np.where(self.y_mean < cutoff)[0]
+            other_patches = np.where(y_mean[self.idx] < cutoff)[0]
             other_patches = np.random.choice(other_patches, min(int(len_poi * other_fraction), len(other_patches)), replace=False)
         else: 
             other_patches = patches_of_interest[0:1]
         print("Number of labelled patches for train/test: " + str(len_poi))
         print("Number of other patches: " + str(len(other_patches)))
         
-        self.poi = np.union1d(patches_of_interest, other_patches)
+        poi = np.union1d(patches_of_interest, other_patches)
+        self.poi = np.array(self.idx)[poi]
+        self.y = self.y[self.poi]
+        self.y_mean = y_mean[self.poi]
         return self
     
     

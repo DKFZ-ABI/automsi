@@ -8,8 +8,7 @@ tf.config.threading.set_inter_op_parallelism_threads(1)
 import numpy as np
 import pandas as pd
 from automsi import ae_preprocessing, ae_vae, ae_images, ae_utils, ae_rf
-
-
+import random
 from sklearn.model_selection import cross_validate, ShuffleSplit
 
 
@@ -32,7 +31,6 @@ def parse_args():
     parser.add_argument('--scoring', type=str, default="r2", help='Scoring metric for RF regressor.')
     parser.add_argument('--suffix_from', type=str,  default="_001", help='Can be used to evaluate multiple experiments at once, expected to be of kind "_{0-9}3".')
     parser.add_argument('--suffix_to', type=str,  default="_001", help='Can be used to evaluate multiple experiments at once, expected to be of kind "_{0-9}3".')
-    parser.add_argument('--spatial_data', type=str, default="msi", help='Define spatial omics data (msi or spt).')
         
     return parser.parse_args()
    
@@ -41,7 +39,7 @@ def parse_args():
 def extract_feature_importance(classifier, feature_names, z, y, suffix, path_prefix, args):
     top = []
     fi_path = path_prefix  + "_rf_" if args.mode == "original" else  path_prefix  + "/rf_"
-    writer = pd.ExcelWriter(fi_path + suffix + '.xlsx')
+    writer = pd.ExcelWriter(fi_path + str(args.overlapping_patches) + suffix + '.xlsx')
     for idx, estimator in enumerate(classifier['estimator']):
         feature_importances_ = estimator.feature_importances_
             
@@ -70,9 +68,10 @@ def run_regression(exp, suffix, experiment_with_suffix, args):
     print(exp.y[0:10])
     path_prefix = os.path.join(args.ae_export, experiment_with_suffix)
     
-    forest = ae_rf.RandomForestRegressionBuilder(n_estimators = N_TREES, max_features = MTRY, random_state = 42)  
+    random_state = random.randint(1, 1000)
+    forest = ae_rf.RandomForestRegressionBuilder(n_estimators = N_TREES, max_features = MTRY, random_state = random_state) 
     
-    shuffle = ShuffleSplit(n_splits=5, random_state=42, test_size = 0.33)
+    shuffle = ShuffleSplit(n_splits=10, random_state=42, test_size = 0.33)
     classifier = cross_validate(forest.forest, exp.z, exp.y, scoring=args.scoring, cv=shuffle, return_estimator =True)
     
     all_trees = []
@@ -88,7 +87,7 @@ def run_regression(exp, suffix, experiment_with_suffix, args):
     print(f"The min depth of all trees in the Random Forest is: {min_depth}")
     print(f"The max depth of all trees in the Random Forest is: {max_depth}")
     
-    print(f"RF train score: {np.mean(classifier['test_score']) :.3f}")
+    print(f"RF test score: {np.mean(classifier['test_score']) :.3f}")
        
     feature_names = np.array(range(exp.z.shape[1]))
     top_index, top_imp = extract_feature_importance(classifier, feature_names, exp.z, exp.y, suffix, path_prefix, args)
@@ -113,15 +112,22 @@ def run_experiments(exp, patch_adapter, suffix, args):
     score = run_regression(exp, suffix, experiment_with_suffix, args)
     return score
 
-
-def main(exp, spatial, args):
-    scores = []   
-    x,y = spatial.train.get_non_empty_patches()
+def set_patch_adapter(args):
+    spatial = ae_images.MSIDataset(exp.patch_size, n_features, im_label = {'FI': 0}, obs_label = {"FI" : "fi"})
+    spatial.build(spt_samples, None, create_patches = False).overlapping_patches(args.overlapping_patches, on_test = False)
+    x, y, idx = spatial.train.get_non_empty_idx_patches()
     print("Shape of patches", x.shape, y.shape)
     
-    patch_adapter = ae_rf.PatchAdapter(x, y, spatial._images.im_label).reduce_to_mean(args.label)
-    patch_adapter.undersample_non_label_patches(args.cutoff, args.other_fraction)
+    patch_adapter = ae_rf.PatchAdapter(x, y, idx, spatial._images.im_label)
+    patch_adapter.undersample_non_label_patches(args.label, args.cutoff, args.other_fraction).reduce_corresponding_x_patches_to_mean()
     
+    return patch_adapter
+
+
+def main(exp, args):
+    patch_adapter = set_patch_adapter(args)
+    scores = []   
+
     for i in range(int(args.suffix_from[1:]), int(args.suffix_to[1:]) + 1):
         suffix = "_" + str(i).zfill(3)
         score = run_experiments(exp, patch_adapter, suffix, args)
@@ -141,18 +147,15 @@ if __name__ == '__main__':
     
     if args.mode == "conv_ae": 
         exp = ae_vae.ConvAEExperiment(args.experiment)
+        #exp = ae_vae.ConvVAEExperiment(args.experiment)
     elif args.mode == "original":
         exp = ae_vae.Experiment(args.experiment)
     
     print("Loading patches from: " + exp.file)
-    if args.spatial_data == "msi": 
-        adata, _, n_features = ae_preprocessing.read_msi_from_adata(args.h5ad_path + exp.file + ae_utils.H5AD_SUFFIX + ".h5ad")
-        spatial = ae_images.MSIDataset(exp.patch_size, n_features, im_label = {'FI': 0}, obs_label = {"FI" : "fi"})
-        
+    adata, _, n_features = ae_preprocessing.read_msi_from_adata(args.h5ad_path + exp.file + ae_utils.H5AD_SUFFIX + ".h5ad")
     spt_samples = adata[adata.obs["batch"].isin(args.samples)]
     scaler = args.ae_export + "weights/" + args.scaler
     spt_samples, _ = ae_preprocessing.normalize_train_test_using_scaler(spt_samples, None, scaler, spt_samples.obs, None)
-    spatial.build(spt_samples, None, create_patches = False).overlapping_patches(args.overlapping_patches)
- 
-    main(exp, spatial, args)
+    
+    main(exp, args)
     

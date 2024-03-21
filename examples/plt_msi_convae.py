@@ -94,7 +94,6 @@ def plot_generalized(image, y, label, title, file_name, feature_id):
         fig.tight_layout(rect=[0, 0.03, 1, 1])
     plt.savefig(args.path_results + args.experiment + file_name + str(feature_id) + ''.join(args.samples) + args.file_suffix, bbox_inches = "tight")  
     
-    
 def main():     
   
     if args.mode == "latent" or args.mode == "reconstructed":
@@ -132,8 +131,6 @@ def main():
     
 if __name__ == '__main__':
     args = parse_args()
-    print(type(args.feature_ids[0]))
-    print(args.feature_ids)
     
     exp = ae_vae.ConvAEExperiment(args.experiment)
     

@@ -1,1 +1,1 @@
-__all__ = ["ae_rf", "ae_import",  "ae_images", "ae_plots", "ae_preprocessing",  "ae_recover", "ae_vae", "ae_utils", "publication"]
+__all__ = ["ae_images", "ae_import",  "ae_plots", "ae_preprocessing", "ae_recover", "ae_rf", "ae_utils", "ae_vae", "datasets"]
