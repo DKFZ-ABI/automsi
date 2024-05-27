@@ -79,4 +79,5 @@ The present contribution is supported by the Helmholtz Association under the joi
 
 
 If you use this software, we appreciate if you cite the following paper:
+
 Bitto, V., Hönscheid, P., Besso, M.J. et al. Enhancing mass spectrometry imaging accessibility using convolutional autoencoders for deriving hypoxia-associated peptides from tumors. npj Syst Biol Appl 10, 57 (2024). https://doi.org/10.1038/s41540-024-00385-x
